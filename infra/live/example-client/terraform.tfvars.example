@@ -1,0 +1,14 @@
+# Placeholder values matching the variable defaults.
+# Replace every value before a real client root is planned or applied.
+parent               = "organizations/000000000000"
+client_display_name  = "example-client"
+client_id            = "example-client"
+project_name         = "Example Client"
+project_id           = "example-client-app"
+billing_account      = "000000-000000-000000"
+region               = "us-central1"
+zone                 = "us-central1-a"
+github_repository    = "Q-Labz/universal-cloud"
+scalr_account_id     = "acc-exampleplaceholder"
+state_bucket_name    = "example-client-tfstate-placeholder"
+log_bucket_name      = "example-client-logs-placeholder"

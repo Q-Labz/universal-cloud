@@ -1,0 +1,9 @@
+# Copy to backend.tf only for a real client, after bootstrap-state has created the bucket.
+# Do not copy this into example-client and apply it. The example root uses placeholder ids.
+# One bucket per client project. One prefix per stack inside that bucket.
+terraform {
+  backend "gcs" {
+    bucket = "REPLACE_CLIENT_STATE_BUCKET"
+    prefix = "stacks/REPLACE_STACK_NAME"
+  }
+}
