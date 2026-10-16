@@ -1,0 +1,29 @@
+apiVersion: universal-cloud/v1
+kind: Stack
+metadata:
+  name: multi-cloud-demo
+spec:
+  resources:
+    - name: demo-gcp-bucket
+      kind: storage.bucket
+      platform: gcp
+      region: US
+      tenancy: demo-gcp-project
+      spec:
+        storageClass: STANDARD
+
+    - name: demo-aws-bucket
+      kind: storage.bucket
+      platform: aws
+      region: us-east-1
+      tenancy: 111122223333
+      spec:
+        versioning: true
+
+    - name: demo-azure-storage
+      kind: storage.bucket
+      platform: azure
+      region: eastus
+      tenancy: 00000000-0000-0000-0000-000000000000
+      spec:
+        sku: Standard_LRS
