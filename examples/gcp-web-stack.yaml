@@ -1,0 +1,53 @@
+apiVersion: universal-cloud/v1
+kind: Stack
+metadata:
+  name: client-acme-gcp
+  labels:
+    client: acme
+    env: staging
+spec:
+  resources:
+    - name: acme-staging-vpc
+      kind: network.vpc
+      platform: gcp
+      region: us-central1
+      tenancy: acme-staging-123456
+      labels:
+        client: acme
+      spec:
+        autoCreateSubnetworks: false
+        description: Staging VPC for Acme
+
+    - name: acme-staging-subnet
+      kind: network.subnet
+      platform: gcp
+      region: us-central1
+      tenancy: acme-staging-123456
+      labels:
+        client: acme
+      spec:
+        network: projects/acme-staging-123456/global/networks/acme-staging-vpc
+        cidr: 10.10.0.0/20
+
+    - name: acme-web-1
+      kind: compute.instance
+      platform: gcp
+      region: us-central1
+      tenancy: acme-staging-123456
+      labels:
+        client: acme
+        role: web
+      spec:
+        zone: us-central1-a
+        machineType: e2-medium
+        network: global/networks/acme-staging-vpc
+
+    - name: acme-assets
+      kind: storage.bucket
+      platform: gcp
+      region: US-CENTRAL1
+      tenancy: acme-staging-123456
+      labels:
+        client: acme
+      spec:
+        storageClass: STANDARD

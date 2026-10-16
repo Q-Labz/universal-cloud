@@ -1,0 +1,42 @@
+{
+  "name": "universal-cloud",
+  "version": "0.1.0",
+  "description": "Multi-cloud control plane for provisioning and managing infrastructure across GCP, AWS, and Azure",
+  "type": "module",
+  "bin": {
+    "ucloud": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "cli": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "multi-cloud",
+    "gcp",
+    "aws",
+    "azure",
+    "infrastructure",
+    "control-plane"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@hono/node-server": "^1.14.1",
+    "hono": "^4.7.5",
+    "yaml": "^2.7.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
+}
