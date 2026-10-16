@@ -1,0 +1,169 @@
+# OpenTofu checks for the GCP foundation.
+# fmt, validate, tflint, and the privileged-IAM check run on every pull request.
+# Plan uses Workload Identity Federation and runs on a pull request only after
+# the TOFU_PLAN_ENABLED and TOFU_STACK repository variables are set.
+# Apply runs only from workflow_dispatch, and only after the gcp-apply
+# environment approves the job. The placeholder example-client root is refused.
+name: OpenTofu
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/tofu.yml"
+      - ".tflint.hcl"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: plan or apply
+        type: choice
+        options:
+          - plan
+          - apply
+        default: plan
+      stack:
+        description: Root module path. example-client is refused.
+        required: true
+        type: string
+        default: infra/live/example-client
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tofu-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: fmt, validate, tflint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: 1.13.1
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: v0.63.1
+
+      - name: Format, privileged IAM, and offline validate
+        run: ./infra/ci/validate-offline.sh
+
+      - name: Install TFLint plugins
+        run: tflint --init --config=.tflint.hcl
+
+      - name: TFLint
+        run: tflint --chdir=infra --recursive --config="${{ github.workspace }}/.tflint.hcl"
+
+  plan:
+    name: plan
+    needs: lint
+    if: >-
+      (github.event_name == 'pull_request' && vars.TOFU_PLAN_ENABLED == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'plan')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      STACK: ${{ github.event_name == 'workflow_dispatch' && inputs.stack || vars.TOFU_STACK }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Refuse the placeholder stack
+        run: |
+          set -euo pipefail
+          if [ -z "${STACK}" ]; then
+            echo "Set the TOFU_STACK repository variable to a real client root."
+            exit 1
+          fi
+          case "${STACK}" in
+            *example-client*)
+              echo "Refusing to plan the placeholder example-client root."
+              exit 1
+              ;;
+          esac
+          if [ ! -d "${STACK}" ]; then
+            echo "Stack directory ${STACK} does not exist."
+            exit 1
+          fi
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: 1.13.1
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_PLAN_SERVICE_ACCOUNT }}
+
+      - name: Plan
+        working-directory: ${{ env.STACK }}
+        run: |
+          set -euo pipefail
+          tofu init -input=false
+          tofu plan -input=false -lock=false -out=tfplan
+
+      - name: Upload plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.STACK }}/tfplan
+          retention-days: 5
+
+  apply:
+    name: apply
+    needs: lint
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    runs-on: ubuntu-latest
+    environment: gcp-apply
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Refuse the placeholder stack
+        env:
+          STACK: ${{ inputs.stack }}
+        run: |
+          set -euo pipefail
+          case "${STACK}" in
+            *example-client*)
+              echo "Refusing to apply the placeholder example-client root."
+              exit 1
+              ;;
+          esac
+          if [ ! -d "${STACK}" ]; then
+            echo "Stack directory ${STACK} does not exist."
+            exit 1
+          fi
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: 1.13.1
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_APPLY_SERVICE_ACCOUNT }}
+
+      - name: Apply
+        working-directory: ${{ inputs.stack }}
+        run: |
+          set -euo pipefail
+          tofu init -input=false
+          tofu plan -input=false -out=tfplan
+          tofu apply -input=false tfplan
